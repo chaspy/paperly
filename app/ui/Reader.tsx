@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { DocumentBlock, Paper } from "@/lib/types";
 
@@ -13,24 +13,33 @@ export function Reader({ paper, initialBlocks, initialMessages }: { paper: Paper
   const [messages, setMessages] = useState(initialMessages);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
+  const [translationState, setTranslationState] = useState<Record<number, "loading" | "done" | "error">>({});
+  const requestedPages = useRef(new Set<number>());
   const pages = useMemo(() => [...new Set(blocks.map((item) => item.page))], [blocks]);
 
   useEffect(() => {
     if (paper.readingStatus === "unread") fetch(`/api/papers/${paper.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "reading" }) });
   }, [paper.id, paper.readingStatus]);
 
+  useEffect(() => {
+    const nextPage = pages.find((page) => !requestedPages.current.has(page) &&
+      blocks.some((item) => item.page === page && !item.translatedText));
+    if (nextPage === undefined) return;
+    requestedPages.current.add(nextPage);
+    setTranslationState((state) => ({ ...state, [nextPage]: "loading" }));
+    void fetch(`/api/papers/${paper.id}/translate`, { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ page: nextPage }) }).then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        const translated = new Map<string, string>(result.translations.map((item: { id: string; text: string }) => [item.id, item.text]));
+        setBlocks((all) => all.map((item) => translated.has(item.id) ? { ...item, translatedText: translated.get(item.id)! } : item));
+        setTranslationState((state) => ({ ...state, [nextPage]: "done" }));
+      }).catch(() => setTranslationState((state) => ({ ...state, [nextPage]: "error" })));
+  }, [blocks, pages, paper.id]);
+
   function capture(block: DocumentBlock) {
     const selected = window.getSelection()?.toString().trim();
     if (selected) setSelection({ blockId: block.id, text: selected, context: block.sourceText });
-  }
-
-  async function translate(block: DocumentBlock) {
-    setBusy(true);
-    const response = await fetch(`/api/papers/${paper.id}/translate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ blockId: block.id }) });
-    const result = await response.json();
-    if (response.ok) setBlocks((all) => all.map((item) => item.id === block.id ? { ...item, translatedText: result.translation } : item));
-    else alert(result.error);
-    setBusy(false);
   }
 
   async function ask(text = question) {
@@ -58,10 +67,12 @@ export function Reader({ paper, initialBlocks, initialMessages }: { paper: Paper
       {blocks.length === 0 && <div className="empty no-pdf"><span>PDF</span><p>PDFを取得できませんでした。PDFをアップロードしてください。<br/>
         {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noreferrer">論文ページを開く ↗</a>}</p></div>}
       <div className="language-key"><span>English</span><span>日本語</span></div>
-      {pages.map((page) => <section className="page" key={page}><div className="page-number">PAGE {String(page).padStart(2, "0")}</div>
+      {pages.map((page) => <section className="page" key={page}><div className="page-number">PAGE {String(page).padStart(2, "0")}
+        {translationState[page] === "loading" && <span> · 日本語を生成中…</span>}
+        {translationState[page] === "error" && <button onClick={() => { requestedPages.current.delete(page); setTranslationState((state) => ({ ...state, [page]: "loading" })); }}>翻訳を再試行</button>}</div>
         {blocks.filter((item) => item.page === page).map((block) => <div className={`bilingual ${block.blockType}`} key={block.id} onMouseUp={() => capture(block)} onTouchEnd={() => setTimeout(() => capture(block), 20)}>
           <div className="source" lang="en">{block.sourceText}</div>
-          <div className="translation" lang="ja">{block.translatedText ?? <button disabled={busy} className="translate" onClick={() => translate(block)}>日本語に翻訳</button>}</div>
+          <div className="translation" lang="ja">{block.translatedText ?? <span className="translation-placeholder">翻訳中…</span>}</div>
         </div>)}</section>)}
     </article>
     {selection && <div className="selection-bar"><q>{selection.text.slice(0, 55)}{selection.text.length > 55 && "…"}</q><div>

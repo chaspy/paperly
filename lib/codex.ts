@@ -3,7 +3,8 @@ import readline from "node:readline";
 
 type Rpc = { id?: number; method?: string; result?: unknown; error?: { message?: string }; params?: Record<string, unknown> };
 
-export async function codexPrompt(prompt: string, existingThread?: string | null): Promise<{ text: string; threadId: string }> {
+export async function codexPrompt(prompt: string, existingThread?: string | null,
+  outputSchema?: Record<string, unknown>): Promise<{ text: string; threadId: string }> {
   const child = spawn(process.env.CODEX_BIN ?? "codex", ["app-server", "--listen", "stdio://"], {
     stdio: ["pipe", "pipe", "pipe"], env: process.env,
   });
@@ -47,7 +48,7 @@ export async function codexPrompt(prompt: string, existingThread?: string | null
     const threadId = String((threadResponse as { thread: { id: string } }).thread.id);
     const completed = new Promise<void>((resolve) => { turnDone = resolve; });
     await request("turn/start", { threadId, input: [{ type: "text", text: prompt }],
-      approvalPolicy: "never", sandboxPolicy: { type: "readOnly" } });
+      approvalPolicy: "never", sandboxPolicy: { type: "readOnly" }, outputSchema });
     await Promise.race([completed, new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Codex response timeout")), 120_000))]);
     if (!answer.trim()) throw new Error(stderr || "Codexから回答がありません");
     return { text: answer.trim(), threadId };

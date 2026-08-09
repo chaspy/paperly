@@ -83,6 +83,12 @@ export const repo = {
   saveTranslation(id: string, text: string) {
     db.prepare("UPDATE document_blocks SET translated_text = ? WHERE id = ?").run(text, id);
   },
+  saveTranslations(items: Array<{ id: string; text: string }>) {
+    const statement = db.prepare("UPDATE document_blocks SET translated_text = ? WHERE id = ?");
+    db.transaction(() => {
+      for (const item of items) statement.run(item.text, item.id);
+    })();
+  },
   setStatus(id: string, status: ReadingStatus) {
     db.prepare("UPDATE papers SET reading_status = ? WHERE id = ?").run(status, id);
   },
