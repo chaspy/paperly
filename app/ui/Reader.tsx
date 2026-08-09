@@ -55,6 +55,8 @@ export function Reader({ paper, initialBlocks, initialMessages }: { paper: Paper
   return <main className={`reader-layout ${chatOpen ? "chat-visible" : ""}`}>
     <article className="reader"><nav className="reader-nav"><Link href="/">← Library</Link><button onClick={() => setChatOpen(!chatOpen)}>Chat <span>{messages.length}</span></button></nav>
       <header className="paper-head"><p>{paper.year ?? "Research paper"} · {paper.authors.slice(0, 3).join(", ")}</p><h1>{paper.title}</h1></header>
+      {blocks.length === 0 && <div className="empty no-pdf"><span>PDF</span><p>PDFを取得できませんでした。PDFをアップロードしてください。<br/>
+        {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noreferrer">論文ページを開く ↗</a>}</p></div>}
       <div className="language-key"><span>English</span><span>日本語</span></div>
       {pages.map((page) => <section className="page" key={page}><div className="page-number">PAGE {String(page).padStart(2, "0")}</div>
         {blocks.filter((item) => item.page === page).map((block) => <div className={`bilingual ${block.blockType}`} key={block.id} onMouseUp={() => capture(block)} onTouchEnd={() => setTimeout(() => capture(block), 20)}>

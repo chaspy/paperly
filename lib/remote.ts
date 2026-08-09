@@ -53,7 +53,9 @@ function meta(html: string, name: string): string[] {
 
 function decode(value: string): string {
   return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x([0-9a-f]+);/gi,
+      (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal: string) => String.fromCodePoint(Number(decimal)));
 }
 
 export async function inspectPaperUrl(raw: string): Promise<PageMetadata> {
@@ -68,7 +70,8 @@ export async function inspectPaperUrl(raw: string): Promise<PageMetadata> {
   const title = meta(html, "citation_title")[0] ?? meta(html, "og:title")[0] ??
     html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? "Untitled paper";
   const date = meta(html, "citation_publication_date")[0] ?? meta(html, "citation_date")[0];
-  const pdfUrl = meta(html, "citation_pdf_url")[0] ?? meta(html, "eprints.document_url")[0] ?? null;
+  const linkedPdf = html.match(/href=["']([^"']+\.pdf(?:\?[^"']*)?)["']/i)?.[1];
+  const pdfUrl = meta(html, "citation_pdf_url")[0] ?? meta(html, "eprints.document_url")[0] ?? linkedPdf ?? null;
   const doi = meta(html, "citation_doi")[0] ?? raw.match(/10\.\d{4,9}\/[A-Za-z0-9._;()/:+-]+/)?.[0] ?? null;
   return { title, authors: meta(html, "citation_author"), doi,
     abstract: meta(html, "citation_abstract")[0] ?? meta(html, "description")[0] ?? null,

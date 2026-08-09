@@ -25,7 +25,13 @@ export async function POST(request: Request) {
       await fs.writeFile(pdfPath, Buffer.from(await file.arrayBuffer()), { flag: "wx" });
     } else if (rawUrl) {
       details = await inspectPaperUrl(rawUrl);
-      if (!details.pdfUrl) throw new Error("PDFを取得できませんでした。PDFをアップロードしてください");
+      if (!details.pdfUrl) {
+        const paper: Paper = { id, title: details.title, authors: details.authors, doi: details.doi,
+          sourceUrl: rawUrl, pdfPath: "", pdfUrl: null, year: details.year,
+          abstract: details.abstract, readingStatus: "unread", addedAt: new Date().toISOString() };
+        repo.insertPaper(paper, []);
+        return NextResponse.json({ id, needsPdf: true });
+      }
       const response = await safeFetch(details.pdfUrl, { headers: { accept: "application/pdf" } });
       if (!response.ok) throw new Error("PDFを取得できませんでした。PDFをアップロードしてください");
       const bytes = Buffer.from(await response.arrayBuffer());
