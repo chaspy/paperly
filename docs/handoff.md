@@ -42,7 +42,16 @@ SQLiteのWALを含む不整合を避けるため、起動中のコピーは行�
 公開repositoryや共有bucketへ置かない。
 
 データを移さない場合でもアプリは空のLibraryとして起動し、論文を再追加できる。翻訳済みPDFを
-移さなければ、初回閲覧時に時間をかけて再生成される。
+移さなければ、初回閲覧時に時間をかけて再生成される。初期4論文の公開URLは
+`seed/papers.json` に保存しているため、Paperly起動後に次のコマンドで再取得できる。
+
+```bash
+npm run restore:library
+```
+
+別のURLで起動している場合は `PAPERLY_URL=http://<tailscale-ip>:3000 npm run restore:library` とする。
+同じsource URLがLibraryにある論文はskipする。PDFが公開されていない論文はmetadataのみ復元され、
+PDF upload待ちになる。manifestには公開情報だけを置き、読書状態、Highlight、Note、Chat履歴は置かない。
 
 ## 起動
 

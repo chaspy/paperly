@@ -8,6 +8,15 @@ import type { Paper } from "@/lib/types";
 
 export const runtime = "nodejs";
 
+export async function GET() {
+  return NextResponse.json({ papers: repo.listPapers().map((paper) => ({
+    id: paper.id,
+    doi: paper.doi,
+    sourceUrl: paper.sourceUrl,
+    title: paper.title,
+  })) });
+}
+
 export async function POST(request: Request) {
   try {
     const form = await request.formData();

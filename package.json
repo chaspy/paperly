@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node --test --experimental-strip-types tests/*.test.ts"
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "restore:library": "node scripts/restore-library.mjs"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",

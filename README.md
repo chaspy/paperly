@@ -44,3 +44,9 @@ npm run dev -- --hostname "$(tailscale ip -4)"
 
 新しいCodexセッションには [.codex/prompts/continue-paperly.md](.codex/prompts/continue-paperly.md)
 を渡すと、プロダクトの目的と現在地を引き継げます。
+
+初期4論文の公開URLだけを復元する場合は、Paperlyを起動してから実行します。
+
+```bash
+npm run restore:library
+```
