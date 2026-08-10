@@ -5,6 +5,14 @@
 
 ## 開発
 
+前提環境（現在動作確認済み）:
+
+- macOS
+- Node.js 22 / npm 10
+- Python 3.12（BabelDOC用）
+- `uv`
+- Codex CLI 0.147.0（`codex login` 済み）
+
 ```bash
 npm install
 uv tool install --python 3.12 BabelDOC
@@ -27,3 +35,12 @@ npm run dev -- --hostname "$(tailscale ip -4)"
 ```
 
 設計・調査結果は [docs/architecture.md](docs/architecture.md) を参照してください。
+
+## 別のMacへ引き継ぐ
+
+コードと設計資料はGitから復元できます。論文、翻訳済みPDF、会話履歴は個人データのため
+`data/` に保存され、Gitには含まれません。詳しい移行手順、動作確認、既知の制約は
+[docs/handoff.md](docs/handoff.md) を参照してください。
+
+新しいCodexセッションには [.codex/prompts/continue-paperly.md](.codex/prompts/continue-paperly.md)
+を渡すと、プロダクトの目的と現在地を引き継げます。
