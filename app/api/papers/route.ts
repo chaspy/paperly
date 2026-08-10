@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       details = await inspectPaperUrl(rawUrl);
       if (!details.pdfUrl) {
         const paper: Paper = { id, title: details.title, authors: details.authors, doi: details.doi,
-          sourceUrl: rawUrl, pdfPath: "", pdfUrl: null, year: details.year,
+          sourceUrl: rawUrl, pdfPath: "", bilingualPdfPath: null, translationStatus: "pending", pdfUrl: null, year: details.year,
           abstract: details.abstract, readingStatus: "unread", addedAt: new Date().toISOString() };
         repo.insertPaper(paper, []);
         return NextResponse.json({ id, needsPdf: true });
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const blocks = await extractPdf(pdfPath, id);
     if (!blocks.length) { await fs.unlink(pdfPath); throw new Error("本文を抽出できませんでした。画像PDFはMVPでは未対応です"); }
     const paper: Paper = { id, title: details.title, authors: details.authors, doi: details.doi,
-      sourceUrl: rawUrl || null, pdfPath, pdfUrl: details.pdfUrl, year: details.year,
+      sourceUrl: rawUrl || null, pdfPath, bilingualPdfPath: null, translationStatus: "pending", pdfUrl: details.pdfUrl, year: details.year,
       abstract: details.abstract, readingStatus: "unread", addedAt: new Date().toISOString() };
     repo.insertPaper(paper, blocks);
     return NextResponse.json({ id });

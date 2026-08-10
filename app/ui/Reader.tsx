@@ -1,87 +1,73 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { DocumentBlock, Paper } from "@/lib/types";
 
 type Message = { id: string; role: string; content: string };
-type Selection = { blockId: string; text: string; context: string };
 
-export function Reader({ paper, initialBlocks, initialMessages }: { paper: Paper; initialBlocks: DocumentBlock[]; initialMessages: Message[] }) {
-  const [blocks, setBlocks] = useState(initialBlocks);
-  const [selection, setSelection] = useState<Selection | null>(null);
+export function Reader({ paper, initialBlocks, initialMessages }: {
+  paper: Paper; initialBlocks: DocumentBlock[]; initialMessages: Message[];
+}) {
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
-  const [translationState, setTranslationState] = useState<Record<number, "loading" | "done" | "error">>({});
-  const requestedPages = useRef(new Set<number>());
-  const pages = useMemo(() => [...new Set(blocks.map((item) => item.page))], [blocks]);
+  const [status, setStatus] = useState(paper.translationStatus);
+  const [error, setError] = useState("");
+  const generationRequested = useRef(false);
 
   useEffect(() => {
-    if (paper.readingStatus === "unread") fetch(`/api/papers/${paper.id}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "reading" }) });
+    if (paper.readingStatus === "unread") void fetch(`/api/papers/${paper.id}/status`, {
+      method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "reading" }),
+    });
   }, [paper.id, paper.readingStatus]);
 
   useEffect(() => {
-    const nextPage = pages.find((page) => !requestedPages.current.has(page) &&
-      blocks.some((item) => item.page === page && !item.translatedText));
-    if (nextPage === undefined) return;
-    requestedPages.current.add(nextPage);
-    setTranslationState((state) => ({ ...state, [nextPage]: "loading" }));
-    void fetch(`/api/papers/${paper.id}/translate`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ page: nextPage }) }).then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error);
-        const translated = new Map<string, string>(result.translations.map((item: { id: string; text: string }) => [item.id, item.text]));
-        setBlocks((all) => all.map((item) => translated.has(item.id) ? { ...item, translatedText: translated.get(item.id)! } : item));
-        setTranslationState((state) => ({ ...state, [nextPage]: "done" }));
-      }).catch(() => setTranslationState((state) => ({ ...state, [nextPage]: "error" })));
-  }, [blocks, pages, paper.id]);
+    if (!paper.pdfPath || status === "ready" || generationRequested.current) return;
+    generationRequested.current = true;
+    void fetch(`/api/papers/${paper.id}/bilingual`, { method: "POST" }).then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      setStatus("ready");
+    }).catch((cause) => { setError(cause instanceof Error ? cause.message : "生成できませんでした"); setStatus("failed"); });
+  }, [paper.id, paper.pdfPath, status]);
 
-  function capture(block: DocumentBlock) {
-    const selected = window.getSelection()?.toString().trim();
-    if (selected) setSelection({ blockId: block.id, text: selected, context: block.sourceText });
-  }
-
-  async function ask(text = question) {
-    if (!text.trim()) return;
+  async function ask() {
+    if (!question.trim()) return;
     setBusy(true); setChatOpen(true);
-    const optimistic = { id: crypto.randomUUID(), role: "user", content: text };
-    setMessages((items) => [...items, optimistic]); setQuestion("");
+    const text = question;
+    setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", content: text }]);
+    setQuestion("");
+    const context = initialBlocks.slice(0, 80).map((item) => item.sourceText).join("\n");
     const response = await fetch(`/api/papers/${paper.id}/chat`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question: text, selectedText: selection?.text, context: selection?.context }) });
+      body: JSON.stringify({ question: text, context }) });
     const result = await response.json();
     setMessages((items) => [...items, { id: crypto.randomUUID(), role: "assistant", content: response.ok ? result.answer : result.error }]);
-    setBusy(false); setSelection(null);
+    setBusy(false);
   }
 
-  async function highlight(note?: string) {
-    if (!selection) return;
-    await fetch(`/api/papers/${paper.id}/highlights`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ blockId: selection.blockId, selectedText: selection.text, note: note ?? null }) });
-    setSelection(null); window.getSelection()?.removeAllRanges();
-  }
-
-  return <main className={`reader-layout ${chatOpen ? "chat-visible" : ""}`}>
-    <article className="reader"><nav className="reader-nav"><Link href="/">← Library</Link><button onClick={() => setChatOpen(!chatOpen)}>Chat <span>{messages.length}</span></button></nav>
-      <header className="paper-head"><p>{paper.year ?? "Research paper"} · {paper.authors.slice(0, 3).join(", ")}</p><h1>{paper.title}</h1></header>
-      {blocks.length === 0 && <div className="empty no-pdf"><span>PDF</span><p>PDFを取得できませんでした。PDFをアップロードしてください。<br/>
-        {paper.sourceUrl && <a href={paper.sourceUrl} target="_blank" rel="noreferrer">論文ページを開く ↗</a>}</p></div>}
-      <div className="language-key"><span>English</span><span>日本語</span></div>
-      {pages.map((page) => <section className="page" key={page}><div className="page-number">PAGE {String(page).padStart(2, "0")}
-        {translationState[page] === "loading" && <span> · 日本語を生成中…</span>}
-        {translationState[page] === "error" && <button onClick={() => { requestedPages.current.delete(page); setTranslationState((state) => ({ ...state, [page]: "loading" })); }}>翻訳を再試行</button>}</div>
-        {blocks.filter((item) => item.page === page).map((block) => <div className={`bilingual ${block.blockType}`} key={block.id} onMouseUp={() => capture(block)} onTouchEnd={() => setTimeout(() => capture(block), 20)}>
-          <div className="source" lang="en">{block.sourceText}</div>
-          <div className="translation" lang="ja">{block.translatedText ?? <span className="translation-placeholder">翻訳中…</span>}</div>
-        </div>)}</section>)}
-    </article>
-    {selection && <div className="selection-bar"><q>{selection.text.slice(0, 55)}{selection.text.length > 55 && "…"}</q><div>
-      <button onClick={() => highlight()}>Highlight</button><button onClick={() => { const note = prompt("メモ"); if (note !== null) highlight(note); }}>Note</button>
-      <button className="primary" onClick={() => ask("この選択箇所を、論文の文脈に沿って分かりやすく説明してください。")}>Ask AI</button></div></div>}
+  return <main className={`pdf-reader-layout ${chatOpen ? "chat-visible" : ""}`}>
+    <section className="pdf-stage">
+      <nav className="pdf-toolbar">
+        <Link href="/">← Library</Link>
+        <div className="pdf-title"><strong>{paper.title}</strong><span>{paper.year ?? ""} · {paper.authors.slice(0, 2).join(", ")}</span></div>
+        <div className="pdf-actions">
+          <a href={`/api/papers/${paper.id}/pdf`} target="_blank">原文PDF</a>
+          <button onClick={() => setChatOpen(!chatOpen)}>Chat <span>{messages.length}</span></button>
+        </div>
+      </nav>
+      {!paper.pdfPath ? <div className="pdf-empty"><h2>PDFが必要です</h2><p>PDFを取得できませんでした。PDFをアップロードしてください。</p></div> :
+        status === "ready" ? <iframe title={`${paper.title} 対訳PDF`} className="pdf-viewer"
+          src={`/api/papers/${paper.id}/pdf?version=bilingual#view=FitH&toolbar=1`} /> :
+        <div className="pdf-generating"><div className="spinner"/><p className="eyebrow">BABELDOC + CODEX</p>
+          <h2>{status === "failed" ? "対訳PDFを生成できませんでした" : "原文のレイアウトを保ったまま翻訳中"}</h2>
+          <p>{status === "failed" ? error : "初回だけ数分かかります。図表・数式・段組みを解析し、日本語版を組版しています。"}</p>
+          {status === "failed" && <button onClick={() => { generationRequested.current = false; setError(""); setStatus("pending"); }}>再試行</button>}</div>}
+    </section>
     <aside className={`chat ${chatOpen ? "open" : ""}`}><header><div><span>PAPER CHAT</span><h2>問いを深める</h2></div><button onClick={() => setChatOpen(false)}>×</button></header>
-      <div className="messages">{messages.length === 0 && <p className="chat-empty">文章を選択するか、この論文について質問してください。</p>}
+      <div className="messages">{messages.length === 0 && <p className="chat-empty">この論文について質問してください。</p>}
         {messages.map((message) => <div className={`message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "Paperly AI" : "You"}</span><p>{message.content}</p></div>)}</div>
-      <form onSubmit={(event) => { event.preventDefault(); ask(); }}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="この論文について質問…"/><button disabled={busy || !question.trim()}>送信</button></form>
+      <form onSubmit={(event) => { event.preventDefault(); void ask(); }}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="この論文について質問…"/><button disabled={busy || !question.trim()}>送信</button></form>
     </aside>
   </main>;
 }

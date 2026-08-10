@@ -7,6 +7,8 @@ export interface Paper {
   doi: string | null;
   sourceUrl: string | null;
   pdfPath: string;
+  bilingualPdfPath: string | null;
+  translationStatus: "pending" | "processing" | "ready" | "failed";
   pdfUrl: string | null;
   year: number | null;
   abstract: string | null;

@@ -35,11 +35,15 @@ db.exec(`
     role TEXT NOT NULL, content TEXT NOT NULL, selected_text TEXT, context TEXT, created_at TEXT NOT NULL
   );
 `);
+const paperColumns = new Set((db.prepare("PRAGMA table_info(papers)").all() as Array<{ name: string }>).map((item) => item.name));
+if (!paperColumns.has("bilingual_pdf_path")) db.exec("ALTER TABLE papers ADD COLUMN bilingual_pdf_path TEXT");
+if (!paperColumns.has("translation_status")) db.exec("ALTER TABLE papers ADD COLUMN translation_status TEXT NOT NULL DEFAULT 'pending'");
 
 type PaperRow = {
   id: string; title: string; authors_json: string; doi: string | null; source_url: string | null;
   pdf_path: string; pdf_url: string | null; year: number | null; abstract: string | null;
-  reading_status: ReadingStatus; added_at: string;
+  reading_status: ReadingStatus; added_at: string; bilingual_pdf_path: string | null;
+  translation_status: Paper["translationStatus"];
 };
 
 type BlockRow = {
@@ -49,7 +53,8 @@ type BlockRow = {
 
 function paper(row: PaperRow): Paper {
   return { id: row.id, title: row.title, authors: JSON.parse(row.authors_json), doi: row.doi,
-    sourceUrl: row.source_url, pdfPath: row.pdf_path, pdfUrl: row.pdf_url, year: row.year,
+    sourceUrl: row.source_url, pdfPath: row.pdf_path, bilingualPdfPath: row.bilingual_pdf_path,
+    translationStatus: row.translation_status, pdfUrl: row.pdf_url, year: row.year,
     abstract: row.abstract, readingStatus: row.reading_status, addedAt: row.added_at };
 }
 
@@ -71,9 +76,11 @@ export const repo = {
   ).all(paperId) as BlockRow[]).map(block),
   insertPaper(input: Paper, blocks: DocumentBlock[]) {
     db.transaction(() => {
-      db.prepare(`INSERT INTO papers VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      db.prepare(`INSERT INTO papers (id,title,authors_json,doi,source_url,pdf_path,pdf_url,year,abstract,reading_status,added_at,bilingual_pdf_path,translation_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
         input.id, input.title, JSON.stringify(input.authors), input.doi, input.sourceUrl,
-        input.pdfPath, input.pdfUrl, input.year, input.abstract, input.readingStatus, input.addedAt
+        input.pdfPath, input.pdfUrl, input.year, input.abstract, input.readingStatus, input.addedAt,
+        input.bilingualPdfPath, input.translationStatus
       );
       const stmt = db.prepare(`INSERT INTO document_blocks VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
       for (const item of blocks) stmt.run(item.id, item.paperId, item.page, item.blockType,
@@ -91,6 +98,10 @@ export const repo = {
   },
   setStatus(id: string, status: ReadingStatus) {
     db.prepare("UPDATE papers SET reading_status = ? WHERE id = ?").run(status, id);
+  },
+  setBilingualStatus(id: string, status: Paper["translationStatus"], pdfPath?: string | null) {
+    db.prepare("UPDATE papers SET translation_status = ?, bilingual_pdf_path = COALESCE(?, bilingual_pdf_path) WHERE id = ?")
+      .run(status, pdfPath ?? null, id);
   },
   saveHighlight(paperId: string, blockId: string, selectedText: string, note: string | null) {
     const id = crypto.randomUUID();
