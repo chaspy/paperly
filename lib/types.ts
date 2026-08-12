@@ -5,6 +5,7 @@ export interface Paper {
   title: string;
   authors: string[];
   doi: string | null;
+  arxivId: string | null;
   sourceUrl: string | null;
   pdfPath: string;
   bilingualPdfPath: string | null;
@@ -12,8 +13,22 @@ export interface Paper {
   pdfUrl: string | null;
   year: number | null;
   abstract: string | null;
+  notes: string;
   readingStatus: ReadingStatus;
   addedAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  paperCount: number;
+}
+
+export interface ProjectMembership extends Project {
+  containsPaper: boolean;
 }
 
 export interface DocumentBlock {

@@ -20,8 +20,11 @@ for (const entry of manifest) {
   }
 
   const form = new FormData();
-  // Metadataを保つため論文ページを優先する。取得可能なPDFはbackendがページから解決する。
   form.set("url", entry.sourceUrl);
+  form.set("title", entry.title);
+  if (entry.doi) form.set("doi", entry.doi);
+  if (entry.pdfUrl) form.set("pdfUrl", entry.pdfUrl);
+  for (const author of entry.authors ?? []) form.append("author", author);
   const response = await fetch(`${baseUrl}/api/papers`, { method: "POST", body: form });
   const result = await response.json();
   if (!response.ok) {

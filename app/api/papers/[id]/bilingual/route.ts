@@ -10,6 +10,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   const { id } = await params;
   const paper = repo.getPaper(id);
   if (!paper?.pdfPath) return NextResponse.json({ error: "原PDFがありません" }, { status: 404 });
+  if (!repo.getBlocks(id).length) return NextResponse.json({ error: "画像PDFの翻訳にはOCRが必要です" }, { status: 422 });
   if (paper.bilingualPdfPath && paper.translationStatus === "ready") return NextResponse.json({ ready: true });
   repo.setBilingualStatus(id, "processing");
   try {

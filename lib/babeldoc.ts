@@ -57,7 +57,7 @@ export async function generateBilingualPdf(inputPath: string, outputDir: string,
     const files = await fs.readdir(outputDir);
     const dual = files.find((file) => /dual/i.test(file) && file.endsWith(".pdf"));
     const mono = files.find((file) => /mono/i.test(file) && file.endsWith(".pdf"));
-    const result = dual ?? mono;
+    const result = mono ?? dual;
     if (!result) throw new Error(`BabelDOCの出力PDFがありません\n${output.slice(-2000)}`);
     return path.join(outputDir, result);
   } finally {

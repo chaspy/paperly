@@ -11,5 +11,9 @@ export default async function ReaderPage({ params }: { params: Promise<{ id: str
   const blocks = repo.getBlocks(id);
   const conversation = repo.ensureConversation(id);
   const messages = repo.messages(conversation.id);
-  return <Reader paper={paper} initialBlocks={blocks} initialMessages={messages as Array<{ id: string; role: string; content: string }>} />;
+  const projects = repo.listProjectsForPaper(id);
+  return <Reader paper={paper} initialBlocks={blocks} initialMessages={messages as Array<{
+    id: string; role: string; content: string; selectedText?: string | null;
+  }>}
+    initialProjects={projects} />;
 }

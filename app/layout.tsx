@@ -6,5 +6,6 @@ export const metadata: Metadata = { title: "Paperly", description: "Read papers 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#f7f3eb" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ja"><body><header className="topbar"><Link href="/" className="brand">paperly</Link><span>read into questions</span></header>{children}</body></html>;
+  return <html lang="ja"><body><header className="topbar"><Link href="/" className="brand">paperly</Link>
+    <nav><Link href="/">Library</Link><Link href="/projects">Projects</Link></nav></header>{children}</body></html>;
 }

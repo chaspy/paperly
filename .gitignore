@@ -1,7 +1,9 @@
 node_modules/
 .next/
 data/
+/papers/
 !.gitkeep
 .env*
 !.env.example
 npm-debug.log*
+*.tsbuildinfo
