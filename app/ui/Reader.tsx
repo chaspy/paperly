@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { DocumentBlock, Paper, ProjectMembership } from "@/lib/types";
+import { readingStatusLabels } from "@/lib/reading-status";
+import type { DocumentBlock, Paper, ProjectMembership, ReadingStatus } from "@/lib/types";
 import { ProjectPicker } from "./ProjectPicker";
 
 type Message = { id: string; role: string; content: string; selectedText?: string | null };
@@ -18,6 +19,11 @@ export function Reader({ paper, initialBlocks, initialMessages, initialProjects 
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(paper.translationStatus);
+  const [readingStatus, setReadingStatus] = useState<ReadingStatus>(
+    paper.readingStatus === "unread" ? "reading" : paper.readingStatus
+  );
+  const [readingStatusSaving, setReadingStatusSaving] = useState(false);
+  const [readingStatusError, setReadingStatusError] = useState(false);
   const [viewMode, setViewMode] = useState<"translated" | "original">(
     paper.translationStatus === "ready" ? "translated" : "original"
   );
@@ -38,7 +44,9 @@ export function Reader({ paper, initialBlocks, initialMessages, initialProjects 
   useEffect(() => {
     if (paper.readingStatus === "unread") void fetch(`/api/papers/${paper.id}/status`, {
       method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "reading" }),
-    });
+    }).then((response) => {
+      if (!response.ok) setReadingStatus("unread");
+    }).catch(() => setReadingStatus("unread"));
   }, [paper.id, paper.readingStatus]);
 
   useEffect(() => {
@@ -86,6 +94,20 @@ export function Reader({ paper, initialBlocks, initialMessages, initialProjects 
     }
   }
 
+  async function changeReadingStatus(nextStatus: ReadingStatus) {
+    const previousStatus = readingStatus;
+    setReadingStatus(nextStatus); setReadingStatusSaving(true); setReadingStatusError(false);
+    try {
+      const response = await fetch(`/api/papers/${paper.id}/status`, { method: "PATCH",
+        headers: { "content-type": "application/json" }, body: JSON.stringify({ status: nextStatus }) });
+      if (!response.ok) throw new Error();
+    } catch {
+      setReadingStatus(previousStatus); setReadingStatusError(true);
+    } finally {
+      setReadingStatusSaving(false);
+    }
+  }
+
   function openChatWithSelection() {
     setPanel("chat");
     window.setTimeout(() => questionInputRef.current?.focus(), 0);
@@ -117,6 +139,15 @@ export function Reader({ paper, initialBlocks, initialMessages, initialProjects 
               onClick={() => setViewMode("translated")}>日本語</button>
             <button className={viewMode === "original" ? "active" : ""} onClick={() => setViewMode("original")}>原文</button>
           </div>
+          <label className={`reading-status-control ${readingStatus}`}
+            title={readingStatusError ? "状態を保存できませんでした" : "読書状態"}>
+            <span className="sr-only">読書状態</span>
+            <select aria-label="読書状態" value={readingStatus} disabled={readingStatusSaving}
+              onChange={(event) => void changeReadingStatus(event.target.value as ReadingStatus)}>
+              {(Object.keys(readingStatusLabels) as ReadingStatus[]).map((value) =>
+                <option key={value} value={value}>{readingStatusLabels[value]}</option>)}
+            </select>
+          </label>
           <ProjectPicker paperId={paper.id} initialProjects={initialProjects} />
           <a href={`/api/papers/${paper.id}/pdf`} target="_blank">原文PDF</a>
           <button className={panel === "chat" ? "active" : ""} onClick={() => setPanel(panel === "chat" ? null : "chat")}>Chat <span>{messages.length}</span></button>

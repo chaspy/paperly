@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { repo } from "@/lib/db";
+import { readingStatusLabels } from "@/lib/reading-status";
 import { AddPaper } from "./ui/AddPaper";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export default function LibraryPage() {
     <section className="paper-list"><div className="section-title"><h2>Library</h2><span>{papers.length} papers</span></div>
       {papers.length === 0 ? <div className="empty"><span>01</span><p>最初の論文を追加してください。<br/>arXiv、PubMed、J-STAGE、PDFに対応しています。</p></div> : papers.map((paper) =>
         <Link className="paper-card" href={`/papers/${paper.id}`} key={paper.id}>
-          <div><span className={`status ${paper.readingStatus}`}>{paper.readingStatus}</span><h3>{paper.title}</h3>
+          <div><span className={`status ${paper.readingStatus}`}>{readingStatusLabels[paper.readingStatus]}</span><h3>{paper.title}</h3>
             <p>{paper.authors.join(", ") || "Unknown author"}</p></div><strong>{paper.year ?? "—"}</strong>
         </Link>)}
     </section>

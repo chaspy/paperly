@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { readingStatusLabels } from "@/lib/reading-status";
 import type { Paper } from "@/lib/types";
 
 export function ProjectPaperList({ projectId, papers }: { projectId: string; papers: Paper[] }) {
@@ -16,7 +17,7 @@ export function ProjectPaperList({ projectId, papers }: { projectId: string; pap
   }
   if (!papers.length) return <div className="project-empty"><p>このProjectにはまだPaperがありません。</p><Link href="/">LibraryからPaperを開いて追加</Link></div>;
   return <div className="project-paper-list">{papers.map((paper) => <article key={paper.id}>
-    <Link href={`/papers/${paper.id}`}><span>{paper.readingStatus}</span><h2>{paper.title}</h2>
+    <Link href={`/papers/${paper.id}`}><span className={`status ${paper.readingStatus}`}>{readingStatusLabels[paper.readingStatus]}</span><h2>{paper.title}</h2>
       <p>{paper.authors.join(", ") || "Unknown author"}</p></Link>
     <button disabled={removing === paper.id} onClick={() => void remove(paper.id)}>Remove</button>
   </article>)}</div>;

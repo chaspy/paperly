@@ -33,6 +33,9 @@ test("Paperを複数Projectで共有し、所属解除やProject削除でもPape
   assert.equal(repo.saveNotes(paper.id, "気づきと感想"), true);
   assert.equal(repo.getPaper(paper.id)?.notes, "気づきと感想");
 
+  repo.setStatus(paper.id, "read");
+  assert.equal(repo.getPaper(paper.id)?.readingStatus, "read");
+
   assert.equal(repo.deleteProject(second.id), true);
   assert.equal(repo.getProject(second.id), null);
   assert.equal(repo.getPaper(paper.id)?.title, paper.title);
